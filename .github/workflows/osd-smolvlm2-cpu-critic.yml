@@ -1,0 +1,79 @@
+name: OSD real zero-cost SmolVLM2 CPU visual-critic probe
+on:
+  push:
+    branches:
+      - exp/osd-smolvlm2-cpu-critic-*
+    paths:
+      - 'tools/osdvlm/**'
+      - '.github/workflows/osd-smolvlm2-cpu-critic.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: osd-local-vlm-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  small-local-vlm:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    env:
+      OSD_RDTE_OUTPUT: osd-vlm-evidence
+      MODEL_REPO: ggml-org/SmolVLM2-256M-Video-Instruct-GGUF:Q4_K_M
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Pin upstream GHCR OCI image to observed digest (experimental discovery only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$OSD_RDTE_OUTPUT" "$RUNNER_TEMP/osd-model-cache"
+          IMAGE=ghcr.io/ggml-org/llama.cpp:server
+          DIGEST="$(docker buildx imagetools inspect "$IMAGE" | awk '/^Digest:/ {print $2; exit}')"
+          [[ "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+          printf '%s\n' "$IMAGE@$DIGEST" > "$OSD_RDTE_OUTPUT/oci-image.txt"
+          docker pull "ghcr.io/ggml-org/llama.cpp@$DIGEST"
+      - name: Start isolated local CPU VLM with original public open weights
+        shell: bash
+        run: |
+          set -euo pipefail
+          IMG="$(cat "$OSD_RDTE_OUTPUT/oci-image.txt")"
+          docker run -d --name osd-vlm --rm --cpus=2 --memory=5g \
+            -p 127.0.0.1:8080:8080 \
+            -v "$RUNNER_TEMP/osd-model-cache:/root/.cache" \
+            "$IMG" -hf "$MODEL_REPO" --host 0.0.0.0 --port 8080 -c 2048 -n 32 \
+            > "$OSD_RDTE_OUTPUT/container-id.txt"
+          for n in $(seq 1 120); do
+            if curl -sf --max-time 2 http://127.0.0.1:8080/v1/models > /dev/null; then
+              echo "local VLM ready"; exit 0
+            fi
+            if ! docker inspect osd-vlm >/dev/null 2>&1; then echo "model process exited";docker logs osd-vlm || true;exit 1;fi
+            sleep 3
+          done
+          echo "bounded model startup timeout"
+          exit 1
+      - name: Run real visual inference against generated synthetic frame
+        shell: bash
+        run: |
+          set -euo pipefail
+          go version
+          go run tools/osdvlm/synthetic_probe.go
+          cat "$OSD_RDTE_OUTPUT/receipt.json"
+          grep -q 'SUPPORTED_SYNTHETIC_VISUAL_ONLY' "$OSD_RDTE_OUTPUT/receipt.json"
+      - name: Teardown stateless container and cache
+        if: always()
+        shell: bash
+        run: |
+          docker rm -f osd-vlm >/dev/null 2>&1 || true
+          rm -rf "$RUNNER_TEMP/osd-model-cache"
+      - name: Upload bounded model evidence (no provider secrets or private game assets)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: osd-smolvlm2-256m-cpu-${{ github.run_id }}
+          path: osd-vlm-evidence/
+          if-no-files-found: warn
+          retention-days: 3
