@@ -22,7 +22,7 @@ jobs:
     timeout-minutes: 12
     env:
       RUNNER_LABEL: macos-26-intel
-      OSD_RDTE_OUTPUT: ${{ runner.temp }}/osd-ios-evidence
+      OSD_RDTE_OUTPUT: osd-ios-evidence
     steps:
       - name: Fetch exact public Foundry test script
         shell: bash
@@ -43,6 +43,6 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: osd-public-ios-simulator-${{ github.run_id }}
-          path: ${{ runner.temp }}/osd-ios-evidence/
+          path: osd-ios-evidence/
           if-no-files-found: warn
           retention-days: 3
