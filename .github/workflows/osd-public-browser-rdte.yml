@@ -43,8 +43,8 @@ jobs:
       OSD_CHANNEL: ${{ matrix.channel || '' }}
       OSD_DEVICE: ${{ matrix.device }}
       OSD_STATIC_ONLY: ${{ matrix.static }}
-      OSD_RDTE_OUTPUT: ${{ runner.temp }}/osd-evidence
-      OSD_PUBLIC_DIR: ${{ runner.temp }}/osd-public
+      OSD_RDTE_OUTPUT: osd-evidence
+      OSD_PUBLIC_DIR: osd-public
     defaults:
       run:
         shell: bash
@@ -85,6 +85,6 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: osd-public-browser-${{ matrix.lane }}-${{ github.run_id }}
-          path: ${{ runner.temp }}/osd-evidence/
+          path: osd-evidence/
           if-no-files-found: warn
           retention-days: 3
