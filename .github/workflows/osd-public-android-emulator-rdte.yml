@@ -1,0 +1,60 @@
+name: OSD public Android API35 emulator capability RDTE
+on:
+  push:
+    branches:
+      - rdte/osd-crossplatform-census-wave0-*
+    paths:
+      - '.github/workflows/osd-public-android-emulator-rdte.yml'
+      - 'tests/osd-android-emulator-probe.sh'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: osd-android-public-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android-emulator:
+    name: Android API 35 on ${{ matrix.runner }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 28
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-26.04]
+    env:
+      RUNNER_LABEL: ${{ matrix.runner }}
+      OSD_RDTE_OUTPUT: ${{ runner.temp }}/osd-android-evidence
+    steps:
+      - name: Fetch exact public-only Foundry test source
+        shell: bash
+        env:
+          FOUNDRY_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git init -q "$RUNNER_TEMP/foundry-source"
+          git -C "$RUNNER_TEMP/foundry-source" remote add origin "https://github.com/SemperSupra/android-publishing-foundry.git"
+          git -C "$RUNNER_TEMP/foundry-source" fetch --quiet --depth=1 origin "$FOUNDRY_SHA"
+          git -C "$RUNNER_TEMP/foundry-source" checkout --quiet --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/foundry-source" rev-parse HEAD)" = "$FOUNDRY_SHA"
+      - name: Boot fresh hardware-accelerated Android and probe browser safely
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: '-no-window -no-snapshot -noaudio -no-boot-anim -gpu swiftshader_indirect'
+          script: bash "$RUNNER_TEMP/foundry-source/tests/osd-android-emulator-probe.sh"
+      - name: Upload bounded, sanitized Android evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: osd-public-android35-${{ matrix.runner }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/osd-android-evidence/
+          if-no-files-found: warn
+          retention-days: 3
