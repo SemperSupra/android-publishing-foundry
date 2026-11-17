@@ -1,0 +1,90 @@
+name: OSD public 0.3.1 cross-runner browser RDTE (bounded)
+on:
+  push:
+    branches:
+      - rdte/osd-crossplatform-census-wave0-*
+    paths:
+      - '.github/workflows/osd-public-browser-rdte.yml'
+      - 'tests/osd-public-browser-smoke.cjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: osd-public-rdte-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  browser-census:
+    name: ${{ matrix.lane }}
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include:
+          - { lane: linux24-chromium-desktop, runner: ubuntu-24.04, browser: chromium, device: desktop, static: '0' }
+          - { lane: linux24-firefox-desktop, runner: ubuntu-24.04, browser: firefox, device: desktop, static: '0' }
+          - { lane: linux24-webkit-iphone-emulated, runner: ubuntu-24.04, browser: webkit, device: iphone, static: '0' }
+          - { lane: linux26-chromium-pixel-emulated, runner: ubuntu-26.04, browser: chromium, device: pixel, static: '0' }
+          - { lane: windows2025-edge-desktop, runner: windows-2025, browser: chromium, channel: msedge, device: desktop, static: '0' }
+          - { lane: macos26-webkit-iphone-emulated, runner: macos-26, browser: webkit, device: iphone, static: '0' }
+          - { lane: macos26intel-webkit-desktop, runner: macos-26-intel, browser: webkit, device: desktop, static: '0' }
+          - { lane: xcode27-webkit-desktop, runner: xcode-27, browser: webkit, device: desktop, static: '0' }
+          - { lane: linux24arm-browser-unqualified, runner: ubuntu-24.04-arm, browser: chromium, device: desktop, static: '1' }
+          - { lane: linux26arm-browser-unqualified, runner: ubuntu-26.04-arm, browser: chromium, device: desktop, static: '1' }
+          - { lane: windows11arm-browser-unqualified, runner: windows-11-arm, browser: chromium, device: desktop, static: '1' }
+          - { lane: ubuntuslim-browser-unqualified, runner: ubuntu-slim, browser: chromium, device: desktop, static: '1' }
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 16
+    env:
+      OSD_LANE: ${{ matrix.lane }}
+      OSD_BROWSER: ${{ matrix.browser }}
+      OSD_CHANNEL: ${{ matrix.channel || '' }}
+      OSD_DEVICE: ${{ matrix.device }}
+      OSD_STATIC_ONLY: ${{ matrix.static }}
+      OSD_RDTE_OUTPUT: osd-evidence
+      OSD_PUBLIC_DIR: osd-public
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Fetch exact public-only Foundry script and approved OSD 0.3.1 snapshot
+        env:
+          FOUNDRY_SHA: ${{ github.sha }}
+          OSD_SOURCE_SHA: ed917796a6f1bdf50a802143c68be4beff246929
+        run: |
+          set -euo pipefail
+          git init -q "$RUNNER_TEMP/foundry-source"
+          git -C "$RUNNER_TEMP/foundry-source" remote add origin "https://github.com/SemperSupra/android-publishing-foundry.git"
+          git -C "$RUNNER_TEMP/foundry-source" fetch --quiet --depth=1 origin "$FOUNDRY_SHA"
+          git -C "$RUNNER_TEMP/foundry-source" checkout --quiet --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/foundry-source" rev-parse HEAD)" = "$FOUNDRY_SHA"
+          if [ "$OSD_STATIC_ONLY" != '1' ]; then
+            git init -q "$OSD_PUBLIC_DIR"
+            git -C "$OSD_PUBLIC_DIR" remote add origin "https://github.com/mark-e-deyoung/open-space-duel.git"
+            git -C "$OSD_PUBLIC_DIR" fetch --quiet --depth=1 origin "$OSD_SOURCE_SHA"
+            git -C "$OSD_PUBLIC_DIR" checkout --quiet --detach FETCH_HEAD
+            test "$(git -C "$OSD_PUBLIC_DIR" rev-parse HEAD)" = "$OSD_SOURCE_SHA"
+          fi
+      - name: Install only bounded, disposable Playwright tooling
+        if: matrix.static == '0'
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/osd-pw"
+          npm --prefix "$RUNNER_TEMP/osd-pw" install --ignore-scripts --no-audit --no-fund --no-save --silent playwright@1.59.1
+          if [ -z "$OSD_CHANNEL" ]; then
+            node "$RUNNER_TEMP/osd-pw/node_modules/playwright/cli.js" install "$OSD_BROWSER"
+          fi
+      - name: Exercise installed browser and capture source-bound receipt
+        run: |
+          set -euo pipefail
+          node "$RUNNER_TEMP/foundry-source/tests/osd-public-browser-smoke.cjs"
+      - name: Upload bounded sanitized evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: osd-public-browser-${{ matrix.lane }}-${{ github.run_id }}
+          path: osd-evidence/
+          if-no-files-found: warn
+          retention-days: 3

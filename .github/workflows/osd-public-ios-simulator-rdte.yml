@@ -1,0 +1,48 @@
+name: OSD public iPhoneSimulator Safari capability RDTE
+on:
+  push:
+    branches:
+      - rdte/osd-crossplatform-census-wave0-*
+    paths:
+      - '.github/workflows/osd-public-ios-simulator-rdte.yml'
+      - 'tests/osd-ios-simulator-probe.cjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: osd-ios-public-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios-simulator:
+    name: iPhoneSimulator on macOS26 Intel
+    runs-on: macos-26-intel
+    timeout-minutes: 12
+    env:
+      RUNNER_LABEL: macos-26-intel
+      OSD_RDTE_OUTPUT: osd-ios-evidence
+    steps:
+      - name: Fetch exact public Foundry test script
+        shell: bash
+        env:
+          FOUNDRY_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git init -q "$RUNNER_TEMP/foundry-source"
+          git -C "$RUNNER_TEMP/foundry-source" remote add origin "https://github.com/SemperSupra/android-publishing-foundry.git"
+          git -C "$RUNNER_TEMP/foundry-source" fetch --quiet --depth=1 origin "$FOUNDRY_SHA"
+          git -C "$RUNNER_TEMP/foundry-source" checkout --quiet --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/foundry-source" rev-parse HEAD)" = "$FOUNDRY_SHA"
+      - name: Boot disposable iPhoneSimulator and request Safari navigation
+        shell: bash
+        run: node "$RUNNER_TEMP/foundry-source/tests/osd-ios-simulator-probe.cjs"
+      - name: Upload sanitized Simulator evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: osd-public-ios-simulator-${{ github.run_id }}
+          path: osd-ios-evidence/
+          if-no-files-found: warn
+          retention-days: 3
