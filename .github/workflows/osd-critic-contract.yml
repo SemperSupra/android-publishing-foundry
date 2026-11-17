@@ -1,0 +1,40 @@
+name: OSD critic contract qualification (public-only)
+on:
+  push:
+    branches:
+      - research/osd-critic-flywheel-w0-*
+    paths:
+      - 'tools/osdcritic/**'
+      - '.github/workflows/osd-critic-contract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: osd-critic-contract-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deterministic-critic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Checkout public Foundry source (ephemeral runner)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Toolchain and source witness
+        shell: bash
+        run: |
+          set -euo pipefail
+          go version
+          git rev-parse HEAD
+          test -f tools/osdcritic/main.go
+      - name: Static check and adversarial critic oracle
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd tools/osdcritic
+          GO111MODULE=off go vet ./...
+          GO111MODULE=off go test -count=1 -v ./...
