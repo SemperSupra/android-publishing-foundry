@@ -27,7 +27,7 @@ jobs:
         runner: [ubuntu-24.04, ubuntu-26.04]
     env:
       RUNNER_LABEL: ${{ matrix.runner }}
-      OSD_RDTE_OUTPUT: ${{ runner.temp }}/osd-android-evidence
+      OSD_RDTE_OUTPUT: osd-android-evidence
     steps:
       - name: Fetch exact public-only Foundry test source
         shell: bash
@@ -55,6 +55,6 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: osd-public-android35-${{ matrix.runner }}-${{ github.run_id }}
-          path: ${{ runner.temp }}/osd-android-evidence/
+          path: osd-android-evidence/
           if-no-files-found: warn
           retention-days: 3
