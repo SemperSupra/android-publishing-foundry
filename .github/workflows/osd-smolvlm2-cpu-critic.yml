@@ -68,7 +68,8 @@ jobs:
         shell: bash
         run: |
           docker rm -f osd-vlm >/dev/null 2>&1 || true
-          rm -rf "$RUNNER_TEMP/osd-model-cache"
+          # Cache contains files owned by the rootless-sandbox container identity; remove only run-owned temporary path.
+          sudo rm -rf -- "$RUNNER_TEMP/osd-model-cache"
       - name: Upload bounded model evidence (no provider secrets or private game assets)
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
