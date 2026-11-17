@@ -8,7 +8,6 @@ import (
  "encoding/base64"
  "encoding/hex"
  "encoding/json"
- "fmt"
  "image"
  "image/color"
  "image/png"
