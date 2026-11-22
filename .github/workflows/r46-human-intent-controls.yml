@@ -1,0 +1,27 @@
+name: R46 Three-Audience Human Intent Control Projections
+on:
+  pull_request:
+    paths:
+      - 'prototype/human-intent-controls.mjs'
+      - 'prototype/human-intent-controls.test.mjs'
+      - '.github/workflows/r46-human-intent-controls.yml'
+permissions:
+  contents: read
+jobs:
+  human-first-projections:
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        os: [ubuntu-24.04, ubuntu-24.04-arm, windows-2025]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Offline accessibility, concurrent-audience, and authority tests
+        run: |
+          node --test prototype/human-intent-controls.test.mjs
+          node --test prototype/session-reattach.test.mjs
+          node --test prototype/presentation-adapter.test.mjs
