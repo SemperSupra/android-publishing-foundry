@@ -20,8 +20,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@a4d4dfcd78b0f0ea4af6f0e1e6cd01a910f94c5b # v4.4.0
-        with:
-          node-version: '22'
       - name: Run browser API and untrusted human-input conformance
-        run: node --test prototype/human-io-capability.test.mjs
+        run: |
+          node --version
+          node --test prototype/human-io-capability.test.mjs
