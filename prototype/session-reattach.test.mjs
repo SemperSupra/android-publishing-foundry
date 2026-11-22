@@ -114,3 +114,8 @@ test("no leaked login, scope promotion, approval or local context authority",asy
   await assert.rejects(reattachReadOnly(s,-1));
   await assert.rejects(reattachReadOnly(s,4));
 });
+
+test("canonical manifest digest matches independent Python protocol golden vector",()=>{
+  const ctx=Object.fromEntries(slots.map(name=>[name,{ref:name+":fixture",digest:"0".repeat(64),revision:1}]));
+  assert.equal(sha(canonical(ctx)),"4efd6a3938e52fe4d782f75b201a82070399b1dea7481c1f0634654fc6465c6a");
+});
