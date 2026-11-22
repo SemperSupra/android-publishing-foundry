@@ -1,0 +1,28 @@
+name: R45 Cross-Device Read-Only Session Client
+on:
+  pull_request:
+    paths:
+      - 'prototype/session-reattach.mjs'
+      - 'prototype/session-reattach.test.mjs'
+      - '.github/workflows/r45-session-reattach.yml'
+permissions:
+  contents: read
+jobs:
+  mobile-desktop-context-parity:
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm, windows-2025]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Read-only identical context and stale/approval negative tests
+        run: |
+          node --version
+          node --test prototype/session-reattach.test.mjs
+          node --test prototype/presentation-adapter.test.mjs
+          node --test prototype/human-io-capability.test.mjs
