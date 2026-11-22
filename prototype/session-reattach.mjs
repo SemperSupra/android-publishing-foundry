@@ -43,6 +43,7 @@ export function validateRemoteSnapshot(snapshot) {
       Object.keys(snapshot.admission ?? {}).sort().join("|")!==
          "authenticated_by_external_service|carries_approval_token|grants_tool_authority|production_admitted" ||
       Object.values(snapshot.admission).some(v=>v!==false) ||
+      Object.keys(snapshot.presentation ?? {}).sort().join("|")!=="content_truncated|device_local_preferences|portable" ||
       snapshot.presentation?.portable!==true ||
       snapshot.presentation?.device_local_preferences!==true ||
       snapshot.presentation?.content_truncated!==false) {
@@ -53,8 +54,33 @@ export function validateRemoteSnapshot(snapshot) {
   return snapshot;
 }
 
-export function reattachReadOnly(snapshot, afterSeq=0) {
+
+function canonical(value) {
+  if (Array.isArray(value)) return "[" + value.map(canonical).join(",") + "]";
+  if (value !== null && typeof value === "object") {
+    return "{" + Object.keys(value).sort()
+      .map(k=>JSON.stringify(k)+":"+canonical(value[k])).join(",") + "}";
+  }
+  return JSON.stringify(value);
+}
+
+/** Cryptographic integrity only; authorization still belongs to the server. */
+export async function verifyContextDigest(snapshot, subtle=globalThis.crypto?.subtle) {
   validateRemoteSnapshot(snapshot);
+  if (!subtle || typeof subtle.digest !== "function") {
+    throw new Error("WebCrypto SHA-256 not available: fail-closed");
+  }
+  const bytes=new TextEncoder().encode(canonical(snapshot.context));
+  const hash=new Uint8Array(await subtle.digest("SHA-256",bytes));
+  const actual=[...hash].map(v=>v.toString(16).padStart(2,"0")).join("");
+  if (actual!==snapshot.session.context_digest) {
+    throw new Error("Cross-device context manifest integrity mismatch");
+  }
+  return true;
+}
+
+export async function reattachReadOnly(snapshot, afterSeq=0) {
+  await verifyContextDigest(snapshot);
   if (!safeCounter(afterSeq) || afterSeq>snapshot.session.last_event_seq) {
     throw new Error("Invalid replay cursor");
   }
@@ -69,14 +95,15 @@ export function reattachReadOnly(snapshot, afterSeq=0) {
     tool_authority_transfer:false,
   };
 }
-export function freshClientView(snapshot) {
-  validateRemoteSnapshot(snapshot);
+export async function freshClientView(snapshot) {
+  await verifyContextDigest(snapshot);
   return {snapshot, eventRefs:[], afterSeq:0,
           caughtUp:snapshot.session.last_event_seq===0,
           authority:"NONE_FROM_CLIENT_VIEW"};
 }
 
-export function acceptReplayPage(view,page) {
+export async function acceptReplayPage(view,page) {
+  if (view?.snapshot) await verifyContextDigest(view.snapshot);
   if (!view?.snapshot || !Array.isArray(view.eventRefs)) throw new Error("Invalid view");
   const s=validateRemoteSnapshot(view.snapshot).session;
   if (page?.schema!=="actor-session-replay-page/v1" ||
