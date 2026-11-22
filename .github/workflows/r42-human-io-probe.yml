@@ -1,0 +1,26 @@
+name: R42 Android Client Human IO Probe Contract
+on:
+  pull_request:
+    paths:
+      - 'prototype/human-io-capability.mjs'
+      - 'prototype/human-io-capability.test.mjs'
+      - '.github/workflows/r42-human-io-probe.yml'
+permissions:
+  contents: read
+jobs:
+  browser-input-contract:
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm, windows-2025]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Run browser API and untrusted human-input conformance
+        run: |
+          node --version
+          node --test prototype/human-io-capability.test.mjs

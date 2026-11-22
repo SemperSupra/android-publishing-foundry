@@ -1,0 +1,9 @@
+# R42 Human I/O client capability prototype
+
+This source-only, permissionless JavaScript module is a prospective shared browser/PWA adapter, **not** an Android APK or native HIL receipt. It must support humans using touch, pen, switch access, keyboard, mouse, gamepad, adaptive controllers, voice and sensors when OS/browser/device evidence admits them. Canonical channel taxonomy and qualification authority belong to [Model Spelunker #265](https://github.com/SemperSupra/model-spelunker/issues/265); do not create a second HID registry here.
+
+A browser API being present **does not prove** a physical device exists, permission has been granted, an input was exercised, or a user authenticated/approved an action. The module does not request camera/microphone/WebHID/Bluetooth permission, capture biometrics, enumerate nearby devices, record text or report raw media. It produces source/API-presence evidence only. An agent tool or consequential action still requires separately authenticated, scoped approval through the Agent Dispatch control plane.
+
+Device discovery/qualification is a *separate* target-specific lane for Android, iOS, tablet PWA, macOS, Windows, Linux/Wayland/X11, server, remote sessions and XR. Distinguish hardware transports (USB HID, Bluetooth HID, I²C, virtual or remote) from OS mediation (accessibility, audio/camera) and user interaction semantics. Ensure assistive technology, braille and switch use can perform every operator task without being falsely classified as a direct hardware API. Media, gaze/head tracking and voice require consent and explicit forwarding control.
+
+Public CI runs `node --test prototype/human-io-capability.test.mjs` on standard public GHA. Physical sensor, browser UI, accessibility usability, authenticated session and Android package qualification remain **HOLD** pending native integration and independent oracle evidence.
